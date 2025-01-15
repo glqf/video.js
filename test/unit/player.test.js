@@ -384,10 +384,9 @@ QUnit.test('should asynchronously fire error events during source selection', fu
   log.error.restore();
 });
 
-QUnit.test('should retry setting source if error occurs and retryOnError: true', function(assert) {
+QUnit.test('should retry setting source if error occurs', function(assert) {
   const player = TestHelpers.makePlayer({
     techOrder: ['html5'],
-    retryOnError: true,
     sources: [
       { src: 'http://vjs.zencdn.net/v/oceans.mp4', type: 'video/mp4' },
       { src: 'http://vjs.zencdn.net/v/oceans2.mp4', type: 'video/mp4' },
@@ -439,10 +438,9 @@ QUnit.test('should retry setting source if error occurs and retryOnError: true',
   player.dispose();
 });
 
-QUnit.test('should not retry setting source if retryOnError: true and error occurs during playback', function(assert) {
+QUnit.test('should not retry setting source if error occurs during playback', function(assert) {
   const player = TestHelpers.makePlayer({
     techOrder: ['html5'],
-    retryOnError: true,
     sources: [
       { src: 'http://vjs.zencdn.net/v/oceans.mp4', type: 'video/mp4' },
       { src: 'http://vjs.zencdn.net/v/oceans2.mp4', type: 'video/mp4' },
@@ -490,7 +488,6 @@ QUnit.test('should not retry setting source if retryOnError: true and error occu
 QUnit.test('aborts and resets retryOnError behavior if new src() call made during a retry', function(assert) {
   const player = TestHelpers.makePlayer({
     techOrder: ['html5'],
-    retryOnError: true,
     sources: [
       { src: 'http://vjs.zencdn.net/v/oceans.mp4', type: 'video/mp4' },
       { src: 'http://vjs.zencdn.net/v/oceans2.mp4', type: 'video/mp4' },
@@ -970,6 +967,130 @@ QUnit.test('should add a touch-enabled classname when touch is supported', funct
   player.dispose();
 });
 
+QUnit.test('should add smart-tv classname when on smart tv', function(assert) {
+  assert.expect(1);
+
+  browser.stub_IS_SMART_TV(true);
+
+  const player = TestHelpers.makePlayer({});
+
+  assert.ok(player.hasClass('vjs-device-smart-tv'), 'smart-tv classname added');
+
+  browser.reset_IS_SMART_TV();
+  player.dispose();
+});
+
+QUnit.test('should add webos classname when on webos', function(assert) {
+  assert.expect(1);
+
+  browser.stub_IS_WEBOS(true);
+
+  const player = TestHelpers.makePlayer({});
+
+  assert.ok(player.hasClass('vjs-device-webos'), 'webos classname added');
+
+  browser.reset_IS_WEBOS();
+  player.dispose();
+});
+
+QUnit.test('should add tizen classname when on tizen', function(assert) {
+  assert.expect(1);
+
+  browser.stub_IS_TIZEN(true);
+
+  const player = TestHelpers.makePlayer({});
+
+  assert.ok(player.hasClass('vjs-device-tizen'), 'tizen classname added');
+
+  browser.reset_IS_TIZEN();
+  player.dispose();
+});
+
+QUnit.test('should add android classname when on android', function(assert) {
+  assert.expect(1);
+
+  browser.stub_IS_ANDROID(true);
+
+  const player = TestHelpers.makePlayer({});
+
+  assert.ok(player.hasClass('vjs-device-android'), 'android classname added');
+
+  browser.reset_IS_ANDROID();
+  player.dispose();
+});
+
+QUnit.test('should add ipad classname when on ipad', function(assert) {
+  assert.expect(1);
+
+  browser.stub_IS_IPAD(true);
+
+  const player = TestHelpers.makePlayer({});
+
+  assert.ok(player.hasClass('vjs-device-ipad'), 'ipad classname added');
+
+  browser.reset_IS_IPAD();
+  player.dispose();
+});
+
+QUnit.test('should add iphone classname when on iphone', function(assert) {
+  assert.expect(1);
+
+  browser.stub_IS_IPHONE(true);
+
+  const player = TestHelpers.makePlayer({});
+
+  assert.ok(player.hasClass('vjs-device-iphone'), 'iphone classname added');
+
+  browser.reset_IS_IPHONE();
+  player.dispose();
+});
+
+QUnit.test('should add chromecast-receiver classname when on chromecast receiver', function(assert) {
+  assert.expect(1);
+
+  browser.stub_IS_CHROMECAST_RECEIVER(true);
+
+  const player = TestHelpers.makePlayer({});
+
+  assert.ok(player.hasClass('vjs-device-chromecast-receiver'), 'chromecast-receiver classname added');
+
+  browser.reset_IS_CHROMECAST_RECEIVER();
+  player.dispose();
+});
+
+QUnit.test('should add a svg-icons-enabled classname when svg icons are supported', function(assert) {
+  // Stub a successful parsing of the SVG sprite.
+  sinon.stub(window.DOMParser.prototype, 'parseFromString').returns({
+    querySelector: () => false,
+    documentElement: document.createElement('span')
+  });
+
+  assert.expect(1);
+
+  const player = TestHelpers.makePlayer({experimentalSvgIcons: true});
+
+  assert.ok(player.hasClass('vjs-svg-icons-enabled'), 'svg-icons-enabled classname added');
+
+  window.DOMParser.prototype.parseFromString.restore();
+  player.dispose();
+});
+
+QUnit.test('should revert to font icons if the SVG sprite cannot be loaded', function(assert) {
+  // Stub an unsuccessful parsing of the SVG sprite.
+  sinon.stub(window.DOMParser.prototype, 'parseFromString').returns({
+    querySelector: () => true
+  });
+
+  assert.expect(1);
+
+  const player = TestHelpers.makePlayer({experimentalSvgIcons: true});
+
+  assert.ok(!player.hasClass('vjs-svg-icons-enabled'), 'svg-icons-enabled classname was not added');
+
+  window.DOMParser.prototype.parseFromString.restore();
+  player.dispose();
+});
+
 QUnit.test('should not add a touch-enabled classname when touch is not supported', function(assert) {
   assert.expect(1);
 
@@ -1052,55 +1173,6 @@ QUnit.test('should register players with generated ids', function(assert) {
 
   assert.equal(player.el().id, player.id(), 'the player and element ids are equal');
   assert.ok(Player.players[id], 'the generated id is registered');
-  player.dispose();
-});
-
-QUnit.test('should not add multiple first play events despite subsequent loads', function(assert) {
-  assert.expect(1);
-
-  const player = TestHelpers.makePlayer({});
-
-  player.on('firstplay', function() {
-    assert.ok(true, 'First play should fire once.');
-  });
-
-  // Checking to make sure onLoadStart removes first play listener before adding a new one.
-  player.tech_.trigger('loadstart');
-  player.tech_.trigger('loadstart');
-  player.tech_.trigger('play');
-  player.dispose();
-});
-
-QUnit.test('should fire firstplay after resetting the player', function(assert) {
-  const player = TestHelpers.makePlayer({});
-
-  let fpFired = false;
-
-  player.on('firstplay', function() {
-    fpFired = true;
-  });
-
-  // init firstplay listeners
-  player.tech_.trigger('loadstart');
-  player.tech_.trigger('play');
-  assert.ok(fpFired, 'First firstplay fired');
-
-  // reset the player
-  player.tech_.trigger('loadstart');
-  fpFired = false;
-  player.tech_.trigger('play');
-  assert.ok(fpFired, 'Second firstplay fired');
-
-  // the play event can fire before the loadstart event.
-  // in that case we still want the firstplay even to fire.
-  player.tech_.paused = function() {
-    return false;
-  };
-  fpFired = false;
-  // reset the player
-  player.tech_.trigger('loadstart');
-  // player.tech_.trigger('play');
-  assert.ok(fpFired, 'Third firstplay fired');
   player.dispose();
 });
 
@@ -1640,26 +1712,6 @@ QUnit.test('setting audioPosterMode() should trigger audiopostermodechange event
   });
 });
 
-QUnit.test('audioPosterMode is synchronous and returns undefined when promises are unsupported', function(assert) {
-  const originalPromise = window.Promise;
-  const player = TestHelpers.makePlayer({});
-
-  player.trigger('ready');
-  window.Promise = undefined;
-
-  const returnValTrue = player.audioPosterMode(true);
-
-  assert.equal(returnValTrue, undefined, 'return value is undefined');
-  assert.ok(player.audioPosterMode(), 'state synchronously set to true');
-
-  const returnValFalse = player.audioPosterMode(false);
-
-  assert.equal(returnValFalse, undefined, 'return value is undefined');
-  assert.notOk(player.audioPosterMode(), 'state synchronously set to false');
-
-  window.Promise = originalPromise;
-});
-
 QUnit.test('should setScrubbing when seeking or not seeking', function(assert) {
   const player = TestHelpers.makePlayer();
   let isScrubbing;
@@ -1940,6 +1992,12 @@ QUnit.test('Player#tech logs a warning when called without a safety argument', f
   log.warn = oldLogWarn;
 });
 
+QUnit.test('player#version will return an object with video.js version', function(assert) {
+  const player = TestHelpers.makePlayer();
+
+  assert.strictEqual(player.version()['video.js'], pkg.version, 'version is correct');
+});
+
 QUnit.test('player#reset loads the Html5 tech and then techCalls reset', function(assert) {
   let loadedTech;
   let loadedSource;
@@ -1947,8 +2005,11 @@ QUnit.test('player#reset loads the Html5 tech and then techCalls reset', functio
 
   const testPlayer = {
     options_: {
-      techOrder: ['html5', 'flash']
+      techOrder: ['html5', 'youtube']
     },
+    error() {},
+    addClass() {},
+    removeClass() {},
     resetCache_() {},
     loadTech_(tech, source) {
       loadedTech = tech;
@@ -1979,8 +2040,11 @@ QUnit.test('player#reset loads the first item in the techOrder and then techCall
 
   const testPlayer = {
     options_: {
-      techOrder: ['flash', 'html5']
+      techOrder: ['youtube', 'html5']
     },
+    error() {},
+    addClass() {},
+    removeClass() {},
     resetCache_() {},
     loadTech_(tech, source) {
       loadedTech = tech;
@@ -1999,7 +2063,7 @@ QUnit.test('player#reset loads the first item in the techOrder and then techCall
 
   Player.prototype.reset.call(testPlayer);
 
-  assert.equal(loadedTech, 'flash', 'we loaded the Flash tech');
+  assert.equal(loadedTech, 'youtube', 'we loaded the Youtube tech');
   assert.equal(loadedSource, null, 'with a null source');
   assert.equal(techCallMethod, 'reset', 'we then reset the tech');
 });
@@ -2061,7 +2125,6 @@ QUnit.test('player#reset removes the poster', function(assert) {
 });
 
 QUnit.test('player#reset removes remote text tracks', function(assert) {
-  sinon.stub(log, 'warn');
   const player = TestHelpers.makePlayer();
 
   this.clock.tick(1);
@@ -2076,8 +2139,6 @@ QUnit.test('player#reset removes remote text tracks', function(assert) {
   assert.strictEqual(player.remoteTextTracks().length, 1, 'there is one RTT');
   player.reset();
   assert.strictEqual(player.remoteTextTracks().length, 0, 'there are zero RTTs');
-  assert.strictEqual(log.warn.callCount, 1, 'one warning about for manualCleanup');
-  log.warn.restore();
 });
 
 QUnit.test('player#reset progress bar', function(assert) {
@@ -2240,6 +2301,12 @@ QUnit.test('When VIDEOJS_NO_DYNAMIC_STYLE is set, apply sizing directly to the t
   window.VIDEOJS_NO_DYNAMIC_STYLE = originalVjsNoDynamicStyling;
 });
 
+QUnit.test('should return the registered component', function(assert) {
+  class CustomPlayer extends Player {}
+
+  assert.strictEqual(videojs.registerComponent('CustomPlayer', CustomPlayer), CustomPlayer, 'the component is returned');
+});
+
 QUnit.test('should allow to register custom player when any player has not been created', function(assert) {
   class CustomPlayer extends Player {}
   videojs.registerComponent('Player', CustomPlayer);
@@ -2276,6 +2343,64 @@ QUnit.test('should not allow to register custom player when any player has been 
 
   // reset the Player to the original value;
   videojs.registerComponent('Player', Player);
+});
+
+QUnit.test('should not allow to register custom player when any player still exists', function(assert) {
+  const videoTag1 = document.createElement('video');
+  const videoTag2 = document.createElement('video');
+
+  const fixture = document.getElementById('qunit-fixture');
+
+  fixture.appendChild(videoTag1);
+  fixture.appendChild(videoTag2);
+
+  const player1 = videojs(videoTag1);
+  const player2 = videojs(videoTag2);
+
+  class CustomPlayer extends Player {}
+
+  assert.throws(function() {
+    videojs.registerComponent('Player', CustomPlayer);
+  }, 'Can not register Player component after player has been created');
+
+  player1.dispose();
+
+  // still throws, because player2 still exists
+  assert.throws(function() {
+    videojs.registerComponent('Player', CustomPlayer);
+  }, 'Can not register Player component after player has been created');
+
+  player2.dispose();
+
+  // successfully registers, because no player exists anymore
+  // should not throw
+  videojs.registerComponent('Player', CustomPlayer);
+
+  // reset the Player to the original value;
+  videojs.registerComponent('Player', Player);
+});
+
+QUnit.test('setters getters passed to tech', function(assert) {
+  const tag = TestHelpers.makeTag();
+  const fixture = document.getElementById('qunit-fixture');
+
+  fixture.appendChild(tag);
+
+  const player = videojs(tag, {
+    techOrder: ['techFaker']
+  });
+
+  const setSpy = sinon.spy(player.tech_, 'setDefaultMuted');
+  const getSpy = sinon.spy(player.tech_, 'defaultMuted');
+
+  player.defaultMuted(true);
+  player.defaultMuted();
+
+  assert.ok(setSpy.calledWith(true), 'setSpy called');
+  assert.ok(getSpy.called);
+
+  setSpy.restore();
+  getSpy.restore();
 });
 
 QUnit.test('techGet runs through middleware if allowedGetter', function(assert) {
@@ -2396,7 +2521,7 @@ QUnit.test('src selects tech based on middleware', function(assert) {
   FooTech.canPlaySource = (src) => FooTech.canPlayType(src.type);
 
   BarTech.isSupported = () => true;
-  BarTech.canPlayType = (type) => type === 'video/flv';
+  BarTech.canPlayType = (type) => type === 'video/youtube';
   BarTech.canPlaySource = (src) => BarTech.canPlayType(src.type);
 
   videojs.registerTech('FooTech', FooTech);
@@ -2414,8 +2539,8 @@ QUnit.test('src selects tech based on middleware', function(assert) {
   videojs.use('video/bar', () => ({
     setSource(src, next) {
       next(null, {
-        src: 'http://example.com/video.flv',
-        type: 'video/flv'
+        src: 'https://www.youtube.com/watch?v=C0DPdy98e4c',
+        type: 'video/youtube'
       });
     }
   }));
@@ -2445,7 +2570,7 @@ QUnit.test('src selects tech based on middleware', function(assert) {
 
   this.clock.tick(1);
 
-  assert.equal(player.techName_, 'BarTech', 'the BarTech (Flash) tech is chosen');
+  assert.equal(player.techName_, 'BarTech', 'the BarTech (Youtube) tech is chosen');
 
   middleware.getMiddleware('video/foo').pop();
   middleware.getMiddleware('video/bar').pop();
@@ -2525,7 +2650,7 @@ QUnit.test('player.duration() returns NaN if player.cache_.duration is undefined
   const player = TestHelpers.makePlayer();
 
   player.cache_.duration = undefined;
-  assert.ok(Number.isNaN(player.duration()), 'returned NaN for unkown duration');
+  assert.ok(Number.isNaN(player.duration()), 'returned NaN for unknown duration');
 });
 
 QUnit.test('player.duration() returns player.cache_.duration if it is defined', function(assert) {
@@ -2745,6 +2870,20 @@ QUnit.test('Should accept multiple calls to currentTime after player initializat
   assert.equal(player.currentTime(), 800, 'The last value passed is stored as the currentTime value');
 });
 
+QUnit.test('Should be able to set the cache currentTime after player initialization as soon the canplay event is fired', function(assert) {
+  const player = TestHelpers.makePlayer({});
+
+  player.src('xyz.mp4');
+  player.currentTime(500);
+
+  assert.strictEqual(player.getCache().currentTime, 0, 'cache currentTime value was not changed');
+
+  this.clock.tick(100);
+  player.trigger('canplay');
+
+  assert.strictEqual(player.getCache().currentTime, 500, 'cache currentTime value is the one passed after initialization');
+});
+
 QUnit.test('Should fire debugon event when debug mode is enabled', function(assert) {
   const player = TestHelpers.makePlayer({});
   const debugOnSpy = sinon.spy();
@@ -2825,12 +2964,151 @@ QUnit[testOrSkip]('Should only allow requestPictureInPicture if the tech support
   assert.equal(count, 1, 'requestPictureInPicture passed through to supporting tech');
 
   player.tech_.el_.disablePictureInPicture = true;
-  player.requestPictureInPicture();
+  player.requestPictureInPicture().catch(_ => {});
   assert.equal(count, 1, 'requestPictureInPicture not passed through when disabled on tech');
 
   delete player.tech_.el_.disablePictureInPicture;
-  player.requestPictureInPicture();
+  player.requestPictureInPicture().catch(_ => {});
   assert.equal(count, 1, 'requestPictureInPicture not passed through when tech does not support');
+});
+
+QUnit.test('document pictureinpicture is opt-in', function(assert) {
+  const done = assert.async();
+  const player = TestHelpers.makePlayer({
+    disablePictureInPicture: true
+  });
+
+  const testPiPObj = {};
+
+  if (!window.documentPictureInPicture) {
+    window.documentPictureInPicture = testPiPObj;
+  }
+
+  player.requestPictureInPicture().catch(e => {
+    assert.equal(e, 'No PiP mode is available', 'docPiP not used when not enabled');
+  }).then(_ => {
+    if (window.documentPictureInPicture === testPiPObj) {
+      delete window.documentPictureInPicture;
+    }
+    done();
+  });
+
+});
+
+QUnit.test('docPiP is used in preference to winPiP', function(assert) {
+  assert.expect(2);
+
+  const done = assert.async();
+  const player = TestHelpers.makePlayer({
+    enableDocumentPictureInPicture: true
+  });
+  let count = 0;
+
+  player.tech_.el_ = {
+    disablePictureInPicture: false,
+    requestPictureInPicture() {
+      count++;
+    }
+  };
+
+  const testPiPObj = {
+    requestWindow() {
+      return Promise.resolve({});
+    }
+  };
+
+  if (!window.documentPictureInPicture) {
+    window.documentPictureInPicture = testPiPObj;
+  }
+
+  // Test isn't concerned with whether the browser allows the request,
+  player.requestPictureInPicture().then(_ => {
+    assert.ok(true, 'docPiP was called');
+  }).catch(_ => {
+    assert.ok(true, 'docPiP was called');
+  }).then(_ => {
+    assert.equal(0, count, 'requestPictureInPicture not passed to tech');
+    if (window.documentPictureInPicture === testPiPObj) {
+      delete window.documentPictureInPicture;
+    }
+    done();
+  });
+});
+
+QUnit.test('docPiP moves player and triggers events', function(assert) {
+  const done = assert.async();
+  const player = TestHelpers.makePlayer({
+    enableDocumentPictureInPicture: true
+  });
+  const playerParent = player.el().parentElement;
+
+  player.videoHeight = () => 9;
+  player.videoWidth = () => 16;
+
+  const counts = {
+    enterpictureinpicture: 0,
+    leavepictureinpicture: 0
+  };
+
+  player.on(Object.keys(counts), function(e) {
+    counts[e.type]++;
+  });
+
+  const fakePiPWindow = document.createElement('div');
+
+  fakePiPWindow.document = {
+    head: document.createElement('div'),
+    body: document.createElement('div')
+  };
+  fakePiPWindow.querySelector = function(sel) {
+    return fakePiPWindow.document.body.querySelector(sel);
+  };
+  fakePiPWindow.close = function() {
+    fakePiPWindow.dispatchEvent(new Event('pagehide'));
+    delete window.documentPictureInPicture.window;
+  };
+
+  const testPiPObj = {
+    requestWindow() {
+      window.documentPictureInPicture.window = fakePiPWindow;
+      return Promise.resolve(fakePiPWindow);
+    }
+  };
+
+  if (!window.documentPictureInPicture) {
+    window.documentPictureInPicture = testPiPObj;
+  }
+
+  player.requestPictureInPicture().then(win => {
+    assert.ok(player.el().parentElement === win.document.body, 'player el was moved');
+    assert.ok(playerParent.querySelector('.vjs-pip-container'), 'placeholder el was added');
+    assert.ok(player.isInPictureInPicture(), 'player is in pip state');
+    assert.equal(counts.enterpictureinpicture, 1, '`enterpictureinpicture` triggered');
+
+    player.exitPictureInPicture().then(_ => {
+      assert.ok(player.el().parentElement === playerParent, 'player el was restored');
+      assert.notOk(playerParent.querySelector('.vjs-pip-container'), 'placeholder el was removed');
+      assert.notOk(player.isInPictureInPicture(), 'player is not in pip state');
+      assert.equal(counts.leavepictureinpicture, 1, '`leavepictureinpicture` triggered');
+
+      if (window.documentPictureInPicture === testPiPObj) {
+        delete window.documentPictureInPicture;
+      }
+      done();
+    });
+  }).catch(e => {
+    if (e === 'No PiP mode is available') {
+      assert.ok(true, 'Test skipped because PiP not available');
+    } else if (e.name && e.name === 'NotAllowedError') {
+      assert.ok(true, 'Test skipped because PiP not allowed');
+    } else {
+      assert.notOk(true, 'An unexpected error occurred');
+    }
+    if (window.documentPictureInPicture === testPiPObj) {
+      delete window.documentPictureInPicture;
+    }
+    done();
+  });
 });
 
 QUnit.test('playbackRates should trigger a playbackrateschange event', function(assert) {
@@ -2927,26 +3205,6 @@ QUnit.test('audioOnlyMode() getter returns Boolean', function(assert) {
 
   player.trigger('ready');
   assert.ok(typeof player.audioOnlyMode() === 'boolean', 'getter correctly returns boolean');
-});
-
-QUnit.test('audioOnlyMode(true/false) is synchronous and returns undefined when promises are unsupported', function(assert) {
-  const originalPromise = window.Promise;
-  const player = TestHelpers.makePlayer({});
-
-  player.trigger('ready');
-  window.Promise = undefined;
-
-  const returnValTrue = player.audioOnlyMode(true);
-
-  assert.equal(returnValTrue, undefined, 'return value is undefined');
-  assert.ok(player.audioOnlyMode(), 'state synchronously set to true');
-
-  const returnValFalse = player.audioOnlyMode(false);
-
-  assert.equal(returnValFalse, undefined, 'return value is undefined');
-  assert.notOk(player.audioOnlyMode(), 'state synchronously set to false');
-
-  window.Promise = originalPromise;
 });
 
 QUnit.test('audioOnlyMode() gets the correct audioOnlyMode state', function(assert) {
@@ -3101,6 +3359,7 @@ QUnit.test('audioOnlyMode(true/false) hides/shows video-specific control bar com
   controlBar.getChild('ChaptersButton').update();
 
   player.trigger('ready');
+  player.trigger('loadedmetadata');
   player.hasStarted(true);
 
   // Show all control bar children
@@ -3108,8 +3367,12 @@ QUnit.test('audioOnlyMode(true/false) hides/shows video-specific control bar com
     const el = controlBar.getChild(child) && controlBar.getChild(child).el_;
 
     if (el) {
-      // Sanity check that component is showing
-      assert.notEqual(TestHelpers.getComputedStyle(el, 'display'), 'none', `${child} is initially visible`);
+      if (!document.exitPictureInPicture && child === 'PictureInPictureToggle') {
+        assert.equal(TestHelpers.getComputedStyle(el, 'display'), 'none', `${child} is not visible if PiP is not supported`);
+      } else {
+        // Sanity check that component is showing
+        assert.notEqual(TestHelpers.getComputedStyle(el, 'display'), 'none', `${child} is initially visible`);
+      }
     }
   });
 
@@ -3138,7 +3401,11 @@ QUnit.test('audioOnlyMode(true/false) hides/shows video-specific control bar com
         const el = controlBar.getChild(child) && controlBar.getChild(child).el_;
 
         if (el) {
-          assert.notEqual(TestHelpers.getComputedStyle(el, 'display'), 'none', `${child} is shown`);
+          if (!document.exitPictureInPicture && child === 'PictureInPictureToggle') {
+            assert.equal(TestHelpers.getComputedStyle(el, 'display'), 'none', `${child} is not visible if PiP is not supported`);
+          } else {
+            assert.notEqual(TestHelpers.getComputedStyle(el, 'display'), 'none', `${child} is shown`);
+          }
         }
       });
     })
@@ -3182,3 +3449,402 @@ QUnit.test('turning on audioPosterMode when audioOnlyMode is already on will tur
     });
 });
 
+QUnit.test('player height should match control bar height when audioOnlyMode is enabled', function(assert) {
+  const player = TestHelpers.makePlayer({ responsive: true, width: 320, height: 240 });
+
+  player.trigger('ready');
+
+  player.audioOnlyMode(true).then(() => {
+    const initialPlayerHeight = player.currentHeight();
+
+    player.width(768);
+    player.el().style.fontSize = '20px';
+    player.trigger('playerresize');
+
+    assert.ok(initialPlayerHeight !== player.currentHeight(), 'player height is updated');
+  })
+    .then(() => player.audioOnlyMode(false))
+    .then(() => {
+      const initialPlayerHeight = player.currentHeight();
+
+      player.width(768);
+      player.el().style.fontSize = '20px';
+      player.trigger('playerresize');
+
+      assert.equal(player.currentHeight(), initialPlayerHeight, 'player height remains unchanged');
+      assert.ok(initialPlayerHeight !== player.controlBar.currentHeight(), 'player height is different from control bar height');
+    });
+});
+
+QUnit.test('player#load resets the media element to its initial state', function(assert) {
+  const player = TestHelpers.makePlayer({});
+
+  player.src({ src: 'http://vjs.zencdn.net/v/oceans2.mp4', type: 'video/mp4' });
+
+  // Declaring spies here avoids spying on previous calls
+  const techGet_ = sinon.spy(player, 'techCall_');
+  const src = sinon.spy(player, 'src');
+
+  player.load();
+
+  // Case when the VHS tech is not used
+  assert.ok(techGet_.calledOnce, 'techCall_ was called once');
+  assert.ok(src.notCalled, 'src was not called');
+
+  // Simulate the VHS tech
+  player.tech_.vhs = true;
+  player.load();
+
+  // Case when the VHS tech is used
+  assert.ok(techGet_.calledOnce, 'techCall_ remains the same');
+  assert.ok(src.calledOnce, 'src was called');
+
+  techGet_.restore();
+  src.restore();
+  player.dispose();
+});
+
+QUnit.test('crossOrigin value should be maintained after loadMedia is called', function(assert) {
+  const fixture = document.getElementById('qunit-fixture');
+
+  const example1 = '<video id="example_1" class="video-js" preload="none"></video>';
+  const example2 = '<video id="example_2" class="video-js" preload="none"></video>';
+  const example3 = '<video id="example_3" class="video-js" crossorigin="anonymous" preload="none"></video>';
+
+  fixture.innerHTML += example1;
+  fixture.innerHTML += example2;
+  fixture.innerHTML += example3;
+
+  const tagExample1 = document.getElementById('example_1');
+  const tagExample2 = document.getElementById('example_2');
+  const tagExample3 = document.getElementById('example_3');
+  const playerExample1 = TestHelpers.makePlayer({techOrder: ['Html5']}, tagExample1);
+  const playerExample2 = TestHelpers.makePlayer({techOrder: ['Html5'], crossOrigin: 'use-credentials'}, tagExample2);
+  const playerExample3 = TestHelpers.makePlayer({techOrder: ['Html5']}, tagExample3);
+
+  this.clock.tick(1000);
+
+  playerExample1.crossOrigin('anonymous');
+  playerExample1.loadMedia({
+    src: 'foo.mp4'
+  });
+  playerExample2.loadMedia({
+    src: 'foo.mp4'
+  });
+  playerExample3.loadMedia({
+    src: 'foo.mp4'
+  });
+
+  assert.strictEqual(playerExample1.crossOrigin(), 'anonymous', 'crossOrigin value remains correct when assigned by the crossOrigin method and loadMedia is called');
+  assert.ok(tagExample1.crossOrigin === 'anonymous');
+
+  assert.strictEqual(playerExample2.crossOrigin(), 'use-credentials', 'crossOrigin value remains correct when passed through the options and loadMedia is called');
+  assert.ok(tagExample2.crossOrigin === 'use-credentials');
+
+  assert.strictEqual(playerExample3.crossOrigin(), 'anonymous', 'crossOrigin value remains correct when passed via the html property and loadMedia is called');
+  assert.ok(tagExample3.crossOrigin === 'anonymous');
+
+  playerExample1.dispose();
+  playerExample2.dispose();
+  playerExample3.dispose();
+});
+
+QUnit.test('should not reset the error when the tech triggers an error that is null', function(assert) {
+  sinon.stub(log, 'error');
+
+  const player = TestHelpers.makePlayer();
+
+  player.src({
+    src: 'http://example.com/movie.unsupported-format',
+    type: 'video/unsupported-format'
+  });
+
+  this.clock.tick(60);
+
+  // Simulates Chromium's behavior when the poster is invalid
+
+  // is only there for context, but does nothing
+  player.poster('invalid');
+
+  const spyError = sinon.spy(player, 'error');
+  // Chromium behavior produced by the video element
+  const errorStub = sinon.stub(player.tech(true), 'error').callsFake(() => null);
+
+  player.tech(true).trigger('error');
+  // End
+
+  assert.ok(player.hasClass('vjs-error'), 'player has vjs-error class');
+  assert.ok(spyError.notCalled, 'error was not called');
+  assert.ok(player.error(), 'error is retained');
+
+  player.dispose();
+  spyError.restore();
+  errorStub.restore();
+  log.error.restore();
+});
+
+QUnit.test('smooth seeking set to false should not update the display time components or the seek bar', function(assert) {
+  const player = TestHelpers.makePlayer({});
+  const {
+    currentTimeDisplay,
+    remainingTimeDisplay,
+    progressControl: {
+      seekBar
+    }
+  } = player.controlBar;
+  const currentTimeDisplayUpdateContent = sinon.spy(currentTimeDisplay, 'updateContent');
+  const remainingTimeDisplayUpdateContent = sinon.spy(remainingTimeDisplay, 'updateContent');
+  const seekBarUpdate = sinon.spy(seekBar, 'update');
+
+  assert.false(player.options().enableSmoothSeeking, 'enableSmoothSeeking is false by default');
+
+  player.trigger('seeking');
+
+  assert.ok(currentTimeDisplayUpdateContent.notCalled, 'currentTimeDisplay updateContent was not called');
+  assert.ok(remainingTimeDisplayUpdateContent.notCalled, 'remainingTimeDisplay updateContent was not called');
+
+  seekBar.trigger('mousedown');
+  seekBar.trigger('mousemove');
+
+  assert.ok(seekBarUpdate.notCalled, 'seekBar update was not called');
+
+  currentTimeDisplayUpdateContent.restore();
+  remainingTimeDisplayUpdateContent.restore();
+  seekBarUpdate.restore();
+  player.dispose();
+});
+
+QUnit.test('smooth seeking set to true should update the display time components and the seek bar', function(assert) {
+  const player = TestHelpers.makePlayer({enableSmoothSeeking: true});
+  const {
+    currentTimeDisplay,
+    remainingTimeDisplay,
+    progressControl: {
+      seekBar
+    }
+  } = player.controlBar;
+  const currentTimeDisplayUpdateContent = sinon.spy(currentTimeDisplay, 'updateContent');
+  const remainingTimeDisplayUpdateContent = sinon.spy(remainingTimeDisplay, 'updateContent');
+  const seekBarUpdate = sinon.spy(seekBar, 'update');
+
+  assert.true(player.options().enableSmoothSeeking, 'enableSmoothSeeking is true');
+
+  player.duration(1);
+  player.trigger('seeking');
+
+  assert.ok(currentTimeDisplayUpdateContent.called, 'currentTimeDisplay updateContent was called');
+  assert.ok(remainingTimeDisplayUpdateContent.called, 'remainingTimeDisplay updateContent was called');
+
+  seekBar.trigger('mousedown');
+  seekBar.trigger('mousemove');
+
+  assert.ok(seekBarUpdate.called, 'seekBar update was called');
+
+  currentTimeDisplayUpdateContent.restore();
+  remainingTimeDisplayUpdateContent.restore();
+  seekBarUpdate.restore();
+  player.dispose();
+});
+
+QUnit.test('mouseTimeDisplay should be added as child when disableSeekWhileScrubbingOnMobile is true on mobile', function(assert) {
+  const originalIsIos = browser.IS_IOS;
+
+  browser.stub_IS_IOS(true);
+
+  const player = TestHelpers.makePlayer({ disableSeekWhileScrubbingOnMobile: true });
+  const seekBar = player.controlBar.progressControl.seekBar;
+  const mouseTimeDisplay = seekBar.getChild('mouseTimeDisplay');
+
+  assert.ok(mouseTimeDisplay, 'mouseTimeDisplay added as a child');
+
+  player.dispose();
+  browser.stub_IS_IOS(originalIsIos);
+});
+
+QUnit.test('mouseTimeDisplay should not be added as child on mobile when disableSeekWhileScrubbingOnMobile is false', function(assert) {
+  const originalIsIos = browser.IS_IOS;
+
+  browser.stub_IS_IOS(true);
+
+  const player = TestHelpers.makePlayer({ disableSeekWhileScrubbingOnMobile: false });
+  const seekBar = player.controlBar.progressControl.seekBar;
+  const mouseTimeDisplay = seekBar.getChild('mouseTimeDisplay');
+
+  assert.notOk(mouseTimeDisplay, 'mouseTimeDisplay not added as a child');
+
+  player.dispose();
+  browser.stub_IS_IOS(originalIsIos);
+});
+
+QUnit.test('Seeking should occur while scrubbing on mobile when disableSeekWhileScrubbingOnMobile is false', function(assert) {
+  const originalIsIos = browser.IS_IOS;
+
+  browser.stub_IS_IOS(true);
+
+  const player = TestHelpers.makePlayer({ disableSeekWhileScrubbingOnMobile: false });
+  const seekBar = player.controlBar.progressControl.seekBar;
+  const userSeekSpy = sinon.spy(seekBar, 'userSeek_');
+
+  // Simulate a source loaded
+  player.duration(10);
+
+  // Simulate scrub
+  seekBar.handleMouseMove({ pageX: 200 });
+
+  assert.ok(userSeekSpy.calledOnce, 'Seek initiated while scrubbing');
+
+  player.dispose();
+  browser.stub_IS_IOS(originalIsIos);
+});
+
+QUnit.test('Seeking should not occur while scrubbing on mobile when disableSeekWhileScrubbingOnMobile is true', function(assert) {
+  const originalIsIos = browser.IS_IOS;
+
+  browser.stub_IS_IOS(true);
+
+  const player = TestHelpers.makePlayer({ disableSeekWhileScrubbingOnMobile: true });
+  const seekBar = player.controlBar.progressControl.seekBar;
+  const userSeekSpy = sinon.spy(seekBar, 'userSeek_');
+
+  // Simulate a source loaded
+  player.duration(10);
+
+  // Simulate scrub
+  seekBar.handleMouseMove({ pageX: 200 });
+
+  assert.ok(userSeekSpy.notCalled, 'Seek not initiated while scrubbing');
+
+  player.dispose();
+  browser.stub_IS_IOS(originalIsIos);
+});
+
+QUnit.test('Seek should occur when scrubbing completes on mobile when disableSeekWhileScrubbingOnMobile is true', function(assert) {
+  const originalIsIos = browser.IS_IOS;
+
+  browser.stub_IS_IOS(true);
+
+  const player = TestHelpers.makePlayer({ disableSeekWhileScrubbingOnMobile: true });
+  const seekBar = player.controlBar.progressControl.seekBar;
+  const userSeekSpy = sinon.spy(seekBar, 'userSeek_');
+  const targetSeekTime = 5;
+
+  // Simulate a source loaded
+  player.duration(10);
+
+  seekBar.pendingSeekTime_ = targetSeekTime;
+
+  // Simulate scrubbing completion
+  seekBar.handleMouseUp();
+
+  assert.ok(userSeekSpy.calledWith(targetSeekTime), 'Seeks to correct location when scrubbing completes');
+
+  player.dispose();
+  browser.stub_IS_IOS(originalIsIos);
+});
+
+QUnit.test('Player should pause while scrubbing on mobile when disableSeekWhileScrubbingOnMobile is false', function(assert) {
+  const originalIsIos = browser.IS_IOS;
+
+  browser.stub_IS_IOS(true);
+
+  const player = TestHelpers.makePlayer({ disableSeekWhileScrubbingOnMobile: false });
+  const seekBar = player.controlBar.progressControl.seekBar;
+  const pauseSpy = sinon.spy(player, 'pause');
+
+  // Simulate start playing
+  player.play();
+
+  const mockMouseDownEvent = {
+    pageX: 200,
+    stopPropagation: () => {}
+  };
+
+  // Simulate scrubbing start
+  seekBar.handleMouseDown(mockMouseDownEvent);
+
+  assert.ok(pauseSpy.calledOnce, 'Player paused');
+
+  player.dispose();
+  browser.stub_IS_IOS(originalIsIos);
+});
+
+QUnit.test('Player should not pause while scrubbing on mobile when disableSeekWhileScrubbingOnMobile is true', function(assert) {
+  const originalIsIos = browser.IS_IOS;
+
+  browser.stub_IS_IOS(true);
+
+  const player = TestHelpers.makePlayer({ disableSeekWhileScrubbingOnMobile: true });
+  const seekBar = player.controlBar.progressControl.seekBar;
+  const pauseSpy = sinon.spy(player, 'pause');
+
+  // Simulate start playing
+  player.play();
+
+  const mockMouseDownEvent = {
+    pageX: 200,
+    stopPropagation: () => { }
+  };
+
+  // Simulate scrubbing start
+  seekBar.handleMouseDown(mockMouseDownEvent);
+
+  assert.ok(pauseSpy.notCalled, 'Player not paused');
+
+  player.dispose();
+  browser.stub_IS_IOS(originalIsIos);
+});
+
+QUnit.test('addSourceElement calls tech method with correct args', function(assert) {
+  const player = TestHelpers.makePlayer();
+  const addSourceElementSpy = sinon.spy(player.tech_, 'addSourceElement');
+  const srcUrl = 'http://example.com/video.mp4';
+  const mimeType = 'video/mp4';
+
+  player.addSourceElement(srcUrl, mimeType);
+
+  assert.ok(addSourceElementSpy.calledOnce, 'addSourceElement method called');
+  assert.ok(addSourceElementSpy.calledWith(srcUrl, mimeType), 'addSourceElement called with correct arguments');
+
+  addSourceElementSpy.restore();
+  player.dispose();
+});
+
+QUnit.test('addSourceElement returns false if no tech', function(assert) {
+  const player = TestHelpers.makePlayer();
+  const srcUrl = 'http://example.com/video.mp4';
+  const mimeType = 'video/mp4';
+
+  player.tech_ = undefined;
+
+  const added = player.addSourceElement(srcUrl, mimeType);
+
+  assert.notOk(added, 'Returned false');
+  player.dispose();
+});
+
+QUnit.test('removeSourceElement calls tech method with correct args', function(assert) {
+  const player = TestHelpers.makePlayer();
+  const removeSourceElementSpy = sinon.spy(player.tech_, 'removeSourceElement');
+  const srcUrl = 'http://example.com/video.mp4';
+
+  player.removeSourceElement(srcUrl);
+
+  assert.ok(removeSourceElementSpy.calledOnce, 'removeSourceElement method called');
+  assert.ok(removeSourceElementSpy.calledWith(srcUrl), 'removeSourceElement called with correct arguments');
+
+  removeSourceElementSpy.restore();
+  player.dispose();
+});
+
+QUnit.test('removeSourceElement returns false if no tech', function(assert) {
+  const player = TestHelpers.makePlayer();
+  const srcUrl = 'http://example.com/video.mp4';
+  const mimeType = 'video/mp4';
+
+  player.tech_ = undefined;
+
+  const removed = player.removeSourceElement(srcUrl, mimeType);
+
+  assert.notOk(removed, 'Returned false');
+  player.dispose();
+});

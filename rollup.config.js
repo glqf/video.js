@@ -13,8 +13,11 @@ import multiEntry from 'rollup-plugin-multi-entry';
 import stub from 'rollup-plugin-stub';
 import isCI from 'is-ci';
 import replace from '@rollup/plugin-replace';
+import image from '@rollup/plugin-image';
 import istanbul from 'rollup-plugin-istanbul';
 import externalGlobals from 'rollup-plugin-external-globals';
+import svg from 'rollup-plugin-svg';
+import excludeLines from './build/rollup-exclude-lines';
 
 const excludeCoverage = [
   'test/**',
@@ -33,7 +36,7 @@ const watch = {
 };
 
 const onwarn = (warning) => {
-  // ignore unknow option for --no-progress
+  // ignore unknown option for --no-progress
   if (warning.code === 'UNKNOWN_OPTION' && warning.message.indexOf('progress') !== -1) {
     return;
   }
@@ -57,13 +60,24 @@ const primedBabel = babel({
   compact: false,
   presets: [
     ['@babel/preset-env', {
+      targets: [
+        'last 3 major versions',
+        'Firefox ESR',
+        // This ensures support for certain smart TVs (ex. LG WebOS 4)
+        'Chrome >= 53',
+        'not dead',
+        'not ie 11',
+        'not baidu 7',
+        'not and_qq 11',
+        'not and_uc 12',
+        'not op_mini all'
+      ],
       bugfixes: true,
       loose: true,
       modules: false
     }]
   ],
   plugins: [
-    '@babel/plugin-transform-object-assign',
     ['@babel/plugin-transform-runtime', {regenerator: false}]
   ]
 });
@@ -130,6 +144,9 @@ export default cliargs => [
     },
     external: externals.browser,
     plugins: [
+      excludeLines({
+        include: 'src/js/**'
+      }),
       alias({
         'video.js': path.resolve(__dirname, './src/js/video.js')
       }),
@@ -138,6 +155,7 @@ export default cliargs => [
       primedExternalGlobals,
       primedCjs,
       primedBabel,
+      svg(),
       cliargs.progress !== false ? progress() : {}
     ],
     onwarn,
@@ -155,6 +173,9 @@ export default cliargs => [
     },
     external: externals.browser,
     plugins: [
+      excludeLines({
+        include: 'src/js/**'
+      }),
       alias({
         'video.js': path.resolve(__dirname, './src/js/video.js')
       }),
@@ -163,6 +184,7 @@ export default cliargs => [
       primedExternalGlobals,
       primedCjs,
       primedBabel,
+      svg(),
       cliargs.progress !== false ? progress() : {}
     ],
     onwarn,
@@ -178,6 +200,9 @@ export default cliargs => [
     },
     external: externals.test,
     plugins: [
+      excludeLines({
+        include: 'src/js/**'
+      }),
       multiEntry({exports: false}),
       alias({
         'video.js': path.resolve(__dirname, './src/js/video.js')
@@ -188,6 +213,7 @@ export default cliargs => [
       primedCjs,
       CI_TEST_TYPE === 'coverage' ? istanbul({exclude: excludeCoverage}) : {},
       primedBabel,
+      image(),
       cliargs.progress !== false ? progress() : {}
 
     ],
@@ -212,8 +238,12 @@ export default cliargs => [
     ],
     external: externals.module,
     plugins: [
+      excludeLines({
+        include: 'src/js/**'
+      }),
       alias({
         'video.js': path.resolve(__dirname, './src/js/video.js'),
+        'videojs-contrib-quality-levels': path.resolve(__dirname, './node_modules/videojs-contrib-quality-levels/dist/videojs-contrib-quality-levels.es.js'),
         '@videojs/http-streaming': path.resolve(__dirname, './node_modules/@videojs/http-streaming/dist/videojs-http-streaming.es.js')
       }),
       replace({
@@ -224,6 +254,7 @@ export default cliargs => [
       }),
       json(),
       primedBabel,
+      svg(),
       cliargs.progress !== false ? progress() : {}
     ],
     onwarn,
@@ -242,6 +273,9 @@ export default cliargs => [
     external: externals.browser,
     plugins: [
       primedIgnore,
+      excludeLines({
+        include: 'src/js/**'
+      }),
       alias({
         'video.js': path.resolve(__dirname, './src/js/video.js')
       }),
@@ -250,6 +284,7 @@ export default cliargs => [
       primedExternalGlobals,
       primedCjs,
       primedBabel,
+      svg(),
       cliargs.progress !== false ? progress() : {}
     ],
     onwarn,
@@ -273,8 +308,12 @@ export default cliargs => [
     ],
     external: externals.module,
     plugins: [
+      excludeLines({
+        include: 'src/js/**'
+      }),
       json(),
       primedBabel,
+      svg(),
       cliargs.progress !== false ? progress() : {}
     ],
     onwarn,
@@ -293,10 +332,14 @@ export default cliargs => [
     external: externals.browser,
     plugins: [
       primedResolve,
+      excludeLines({
+        include: 'src/js/**'
+      }),
       json(),
       primedExternalGlobals,
       primedCjs,
       primedBabel,
+      svg(),
       cliargs.progress !== false ? progress() : {}
     ],
     onwarn,
@@ -316,10 +359,14 @@ export default cliargs => [
     plugins: [
       primedIgnore,
       primedResolve,
+      excludeLines({
+        include: 'src/js/**'
+      }),
       json(),
       primedExternalGlobals,
       primedCjs,
       primedBabel,
+      svg(),
       cliargs.progress !== false ? progress() : {}
     ],
     onwarn,

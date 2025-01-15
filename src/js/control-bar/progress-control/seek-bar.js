@@ -6,10 +6,12 @@ import Component from '../../component.js';
 import {IS_IOS, IS_ANDROID} from '../../utils/browser.js';
 import * as Dom from '../../utils/dom.js';
 import * as Fn from '../../utils/fn.js';
-import formatTime from '../../utils/format-time.js';
+import {formatTime} from '../../utils/time.js';
 import {silencePromise} from '../../utils/promise';
-import keycode from 'keycode';
+import {merge} from '../../utils/obj';
 import document from 'global/document';
+
+/** @import Player from '../../player' */
 
 import './load-progress-bar.js';
 import './play-progress-bar.js';
@@ -39,7 +41,23 @@ class SeekBar extends Slider {
    *        The key/value store of player options.
    */
   constructor(player, options) {
+    options = merge(SeekBar.prototype.options_, options);
+
+    // Avoid mutating the prototype's `children` array by creating a copy
+    options.children = [...options.children];
+
+    const shouldDisableSeekWhileScrubbingOnMobile = player.options_.disableSeekWhileScrubbingOnMobile && (IS_IOS || IS_ANDROID);
+
+    // Add the TimeTooltip as a child if we are on desktop, or on mobile with `disableSeekWhileScrubbingOnMobile: true`
+    if ((!IS_IOS && !IS_ANDROID) || shouldDisableSeekWhileScrubbingOnMobile) {
+      options.children.splice(1, 0, 'mouseTimeDisplay');
+    }
+
     super(player, options);
+
+    this.shouldDisableSeekWhileScrubbingOnMobile_ = shouldDisableSeekWhileScrubbingOnMobile;
+    this.pendingSeekTime_ = null;
+
     this.setEventHandlers_();
   }
 
@@ -49,10 +67,11 @@ class SeekBar extends Slider {
    * @private
    */
   setEventHandlers_() {
-    this.update_ = Fn.bind(this, this.update);
+    this.update_ = Fn.bind_(this, this.update);
     this.update = Fn.throttle(this.update_, Fn.UPDATE_REFRESH_INTERVAL);
 
-    this.on(this.player_, ['ended', 'durationchange', 'timeupdate'], this.update);
+    this.on(this.player_, ['durationchange', 'timeupdate'], this.update);
+    this.on(this.player_, ['ended'], this.update_);
     if (this.player_.liveTracker) {
       this.on(this.player_.liveTracker, 'liveedgechange', this.update);
     }
@@ -129,7 +148,7 @@ class SeekBar extends Slider {
    * This function updates the play progress bar and accessibility
    * attributes to whatever is passed in.
    *
-   * @param {EventTarget~Event} [event]
+   * @param {Event} [event]
    *        The `timeupdate` or `ended` event that caused this to run.
    *
    * @listens Player#timeupdate
@@ -223,6 +242,12 @@ class SeekBar extends Slider {
    *         The percentage of media played so far (0 to 1).
    */
   getPercent() {
+    // If we have a pending seek time, we are scrubbing on mobile and should set the slider percent
+    // to reflect the current scrub location.
+    if (this.pendingSeekTime_) {
+      return this.pendingSeekTime_ / this.player_.duration();
+    }
+
     const currentTime = this.getCurrentTime_();
     let percent;
     const liveTracker = this.player_.liveTracker;
@@ -244,7 +269,7 @@ class SeekBar extends Slider {
   /**
    * Handle mouse down on seek bar
    *
-   * @param {EventTarget~Event} event
+   * @param {MouseEvent} event
    *        The `mousedown` event that caused this to run.
    *
    * @listens mousedown
@@ -258,7 +283,12 @@ class SeekBar extends Slider {
     event.stopPropagation();
 
     this.videoWasPlaying = !this.player_.paused();
-    this.player_.pause();
+
+    // Don't pause if we are on mobile and `disableSeekWhileScrubbingOnMobile: true`.
+    // In that case, playback should continue while the player scrubs to a new location.
+    if (!this.shouldDisableSeekWhileScrubbingOnMobile_) {
+      this.player_.pause();
+    }
 
     super.handleMouseDown(event);
   }
@@ -266,14 +296,14 @@ class SeekBar extends Slider {
   /**
    * Handle mouse move on seek bar
    *
-   * @param {EventTarget~Event} event
+   * @param {MouseEvent} event
    *        The `mousemove` event that caused this to run.
    * @param {boolean} mouseDown this is a flag that should be set to true if `handleMouseMove` is called directly. It allows us to skip things that should not happen if coming from mouse down but should happen on regular mouse move handler. Defaults to false
    *
    * @listens mousemove
    */
   handleMouseMove(event, mouseDown = false) {
-    if (!Dom.isSingleLeftClick(event)) {
+    if (!Dom.isSingleLeftClick(event) || isNaN(this.player_.duration())) {
       return;
     }
 
@@ -322,8 +352,16 @@ class SeekBar extends Slider {
       }
     }
 
-    // Set new time (tell player to seek to new time)
-    this.userSeek_(newTime);
+    // if on mobile and `disableSeekWhileScrubbingOnMobile: true`, keep track of the desired seek point but we won't initiate the seek until 'touchend'
+    if (this.shouldDisableSeekWhileScrubbingOnMobile_) {
+      this.pendingSeekTime_ = newTime;
+    } else {
+      this.userSeek_(newTime);
+    }
+
+    if (this.player_.options_.enableSmoothSeeking) {
+      this.update();
+    }
   }
 
   enable() {
@@ -351,7 +389,7 @@ class SeekBar extends Slider {
   /**
    * Handle mouse up on seek bar
    *
-   * @param {EventTarget~Event} event
+   * @param {MouseEvent} event
    *        The `mouseup` event that caused this to run.
    *
    * @listens mouseup
@@ -365,12 +403,19 @@ class SeekBar extends Slider {
     }
     this.player_.scrubbing(false);
 
+    // If we have a pending seek time, then we have finished scrubbing on mobile and should initiate a seek.
+    if (this.pendingSeekTime_) {
+      this.userSeek_(this.pendingSeekTime_);
+
+      this.pendingSeekTime_ = null;
+    }
+
     /**
      * Trigger timeupdate because we're done seeking and the time has changed.
      * This is particularly useful for if the player is paused to time the time displays.
      *
      * @event Tech#timeupdate
-     * @type {EventTarget~Event}
+     * @type {Event}
      */
     this.player_.trigger({ type: 'timeupdate', target: this, manuallyTriggered: true });
     if (this.videoWasPlaying) {
@@ -400,7 +445,7 @@ class SeekBar extends Slider {
    * Toggles the playback state of the player
    * This gets called when enter or space is used on the seekbar
    *
-   * @param {EventTarget~Event} event
+   * @param {KeyboardEvent} event
    *        The `keydown` event that caused this function to be called
    *
    */
@@ -423,7 +468,7 @@ class SeekBar extends Slider {
    *   PageDown key moves back a larger step than ArrowDown
    *   PageUp key moves forward a large step
    *
-   * @param {EventTarget~Event} event
+   * @param {KeyboardEvent} event
    *        The `keydown` event that caused this function to be called.
    *
    * @listens keydown
@@ -431,15 +476,15 @@ class SeekBar extends Slider {
   handleKeyDown(event) {
     const liveTracker = this.player_.liveTracker;
 
-    if (keycode.isEventKey(event, 'Space') || keycode.isEventKey(event, 'Enter')) {
+    if (event.key === ' ' || event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
       this.handleAction(event);
-    } else if (keycode.isEventKey(event, 'Home')) {
+    } else if (event.key === 'Home') {
       event.preventDefault();
       event.stopPropagation();
       this.userSeek_(0);
-    } else if (keycode.isEventKey(event, 'End')) {
+    } else if (event.key === 'End') {
       event.preventDefault();
       event.stopPropagation();
       if (liveTracker && liveTracker.isLive()) {
@@ -447,21 +492,21 @@ class SeekBar extends Slider {
       } else {
         this.userSeek_(this.player_.duration());
       }
-    } else if (/^[0-9]$/.test(keycode(event))) {
+    } else if (/^[0-9]$/.test(event.key)) {
       event.preventDefault();
       event.stopPropagation();
-      const gotoFraction = (keycode.codes[keycode(event)] - keycode.codes['0']) * 10.0 / 100.0;
+      const gotoFraction = parseInt(event.key, 10) * 0.1;
 
       if (liveTracker && liveTracker.isLive()) {
         this.userSeek_(liveTracker.seekableStart() + (liveTracker.liveWindow() * gotoFraction));
       } else {
         this.userSeek_(this.player_.duration() * gotoFraction);
       }
-    } else if (keycode.isEventKey(event, 'PgDn')) {
+    } else if (event.key === 'PageDown') {
       event.preventDefault();
       event.stopPropagation();
       this.userSeek_(this.player_.currentTime() - (STEP_SECONDS * PAGE_KEY_MULTIPLIER));
-    } else if (keycode.isEventKey(event, 'PgUp')) {
+    } else if (event.key === 'PageUp') {
       event.preventDefault();
       event.stopPropagation();
       this.userSeek_(this.player_.currentTime() + (STEP_SECONDS * PAGE_KEY_MULTIPLIER));
@@ -474,7 +519,8 @@ class SeekBar extends Slider {
   dispose() {
     this.disableInterval_();
 
-    this.off(this.player_, ['ended', 'durationchange', 'timeupdate'], this.update);
+    this.off(this.player_, ['durationchange', 'timeupdate'], this.update);
+    this.off(this.player_, ['ended'], this.update_);
     if (this.player_.liveTracker) {
       this.off(this.player_.liveTracker, 'liveedgechange', this.update);
     }
@@ -505,11 +551,6 @@ SeekBar.prototype.options_ = {
   ],
   barName: 'playProgressBar'
 };
-
-// MouseTimeDisplay tooltips should not be added to a player on mobile devices
-if (!IS_IOS && !IS_ANDROID) {
-  SeekBar.prototype.options_.children.splice(1, 0, 'mouseTimeDisplay');
-}
 
 Component.registerComponent('SeekBar', SeekBar);
 export default SeekBar;
